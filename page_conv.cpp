@@ -2,6 +2,9 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <windows.h>
+#include <chrono>
+
 using namespace std;
 #include "chunk.cpp"
 
@@ -23,9 +26,24 @@ string argtostring(char* arg)
 
 int main (int argc, char* args[])
 {
-  string filename;
-  filename = (argc>1)?(argtostring(args[1])):"";
-  cout << filename << endl;
+  /*string working_dir = argtostring(args[0]);
+  cout << working_dir <<endl;
+  working_dir = working_dir.substr(0,(working_dir.find_last_of("/\\")+1));*/
+  string filename_in;
+  filename_in = (argc>1)?(argtostring(args[1])):"";
+  cout << filename_in << endl;
+
+  string filename_only = filename_in.substr(filename_in.find_last_of("/\\")+1);
+
+  string directory_out;
+  directory_out = (argc>2)?(argtostring(args[2])):"output\\";
+  if (directory_out.at(directory_out.length()-1)!='\\') directory_out+='\\';
+  //directory_out=working_dir + directory_out;
+  if (CreateDirectory(directory_out.c_str(),NULL) || GetLastError() == ERROR_ALREADY_EXISTS) cout << directory_out << endl;
+
+  string filename_out = directory_out + filename_only;
+  cout << filename_out << endl;
+
   
   //string tag;
   bool in_tag=false;
@@ -39,8 +57,8 @@ int main (int argc, char* args[])
   chunk* map = new chunk;
   chunk* marker = map;
   int status = STATUS_NORMAL;
-  ifstream infile (filename); //("..//html//M48en.htm");
-  ofstream outfile ("output.txt");
+  ifstream infile (filename_in); //("..//html//M48en.htm");
+  ofstream outfile (filename_out);
   bool tag_first_time = true;
   
   // Read HTML file into the (chunk* map) structure
@@ -77,7 +95,11 @@ int main (int argc, char* args[])
     }
     infile.close();
   }
-  else status = status | STATUS_INPUT_ERROR; 
+  else
+  {
+    status = status | STATUS_INPUT_ERROR; 
+    //goto finish;
+  }
 
 // *** File conversion ***
 
@@ -150,6 +172,15 @@ else
   link_tag_result = link_tag_result->insert(new chunk("link", "rel=\"STYLESHEET\" type=\"text/css\" href=\"index2.css\" title=\"Military\"", ""));
   cout << "Inserting lightbox.css tag" << endl;
   link_tag_result->insert(new chunk("link", "href=\"lightbox2/dist/css/lightbox.css\" rel=\"stylesheet\"", ""));
+}
+
+// tune the separators
+chunk* sep_result = map->search("img","---","",false);
+while (sep_result!=NULL)
+{
+  sep_result->param = "alt=\"---\" src=\"index_pliki/vn_sep.bmp\" class=\"sep\"";
+  sep_result=sep_result->next;
+  sep_result = sep_result->search("img","---","",false);
 }
 
   
@@ -253,8 +284,30 @@ pic* pic_ptr = pic_gallery;
     gal_ptr->next = new chunk("/div","",""); // replace the </div> that got deleted
     gallery_result->insert(chunk_gallery);
   }
-  else pic_gallery=NULL; //gallery not found
-
+  else //gallery not found
+  {
+    pic_gallery=NULL;
+    // inline pictures
+    chunk* img_result = map->search("img","","",true);
+    time_t nowtime = chrono::system_clock::to_time_t(chrono::system_clock::now());
+    string hashname = ctime(&nowtime);
+    cout<<hashname<<endl;
+    string lightbox_id = hashname.substr(hashname.find_first_of(":"),hashname.find_first_of(":")+2) + hashname.substr(hashname.find_last_of(":"),hashname.find_last_of(":")+2);
+    while (img_result!=NULL)
+    {
+      if (img_result->param.find("class=\"sep\"")==string::npos)
+      {
+        string image=extract_filename(img_result->param,"src="); //extract filename from param
+        string alttext = extract_filename(img_result->param, "alt=");
+        img_result->tag = "a";
+        img_result->param = "href=\"" + image +"\" data-lightbox=\"" + lightbox_id + "\"";
+        img_result->insert(new chunk("img",("src=\"" + image + "\" alt=\"" + alttext + "\" class=\"articlepic\""),""));
+        img_result->insert(new chunk("/a","",""));
+      }
+      else img_result=img_result->next;
+      img_result = img_result->search("img","","",true);
+    }
+  }
 
   // check for/add <script> lightbox tag;
   chunk* script_tag_result = map->search("script","lightbox","",false); // look
@@ -278,10 +331,10 @@ pic* pic_ptr = pic_gallery;
   cout << script_tag_result << endl; //found, do nothing
 
 
-  // tune the separators
+  
 
 
-  // inline pictures
+  
 
 
   if (outfile.is_open())
@@ -307,6 +360,7 @@ pic* pic_ptr = pic_gallery;
 
   else status = status | STATUS_OUTPUT_ERROR; 
 
+finish:
   if (status)
   {
     if (status & STATUS_INPUT_ERROR)
