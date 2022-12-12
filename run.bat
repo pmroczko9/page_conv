@@ -1,0 +1,1 @@
+for %%g in (.\old\*.htm) do page_conv.exe %%g output1

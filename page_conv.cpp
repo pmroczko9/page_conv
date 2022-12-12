@@ -134,13 +134,7 @@ int main (int argc, char* args[])
     //goto finish;
   }
 
-
-
-  
-
-
-  
-
+  //file write
 
   if (outfile.is_open() && map!=NULL)
   {
@@ -150,7 +144,7 @@ int main (int argc, char* args[])
       outfile << map << endl;
       while (j->next != NULL)
       {
-        outfile << j->next << endl;
+        outfile << j->next; // no endl to avoid unnecessary whitespace
         j=j->next;
       }
     }

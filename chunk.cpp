@@ -137,7 +137,7 @@ ostream& operator<< ( ostream& outs, const chunk* ptr ) {
 	return outs << ptr->toString();
 }
 
-// class gallery
+// class pic (gallery picture)
 
 class pic
 {
